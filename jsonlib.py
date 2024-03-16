@@ -3,11 +3,25 @@ import sys
 from pathlib import Path
 
 
-class ProcessError(Exception): ...
-class ParseError(Exception): ...
+# comment log: what's up & what's new
+#  processerror and parseerror are on hold rn, not bad ideas but what i used them for were json syntax errors
+#  i think i need to first lex my input into tokens and then parse the tokens into a dictionary, but how to lex?
+#  and check out how to reverse it because they're already tokens n stuff
+
+
+#class ProcessError(Exception): ...
+#class ParseError(Exception): ...
 class JSON_SyntaxError(Exception): ...
 
-class jsonreader:
+
+class TOKEN_list: ...
+
+class TOKEN_dict: ...
+
+class TOKEN_literal: ...
+
+
+class JSON:
 
     @staticmethod
     def read(self, path: str) -> dict or None:
@@ -25,11 +39,11 @@ class jsonreader:
             f = f.replace(char, '')
 
         if f[0] != '{':
-            raise JSON_SyntaxError("Missing opening curled bracket '{' for JSON body, found '{f[-1]}'.")
+            raise JSON_SyntaxError(f"Missing opening curled bracket '{' for JSON body, found '{f[-1]}' instead.")
 
         elif f[-1] != '}':
             if f[-1] == " ": raise JSON_SyntaxError("Trailing whitespace beyond the JSON body is not allowed.")
-            else:            raise JSON_SyntaxError("Missing ending curled bracket '}' for JSON body, found '{f[-1]}'.")
+            else:            raise JSON_SyntaxError(f"Missing ending curled bracket '}' for JSON body, found '{f[-1]}' instead.")
 
         executed = parse(f)
         if not executed:
@@ -57,7 +71,7 @@ class jsonreader:
             if at_key:
                 if not parse_key:
                     if char != '"':
-                        raise ParseError(f"Expected double quote character (\") while finding start of some key, found '{char}' instead.")
+                        raise JSON_SyntaxError(f"Expected double quote character (\") while finding start of some key, found '{char}' instead.")
                     else:
                         parse_key = True
                 elif parse_key:
@@ -69,25 +83,25 @@ class jsonreader:
                         semicolon_check = True
             elif semicolon_check:
                 if char != ':':
-                    raise ParseError(f"Expected ':' for key \"{key}\", found '{char}' instead")
+                    raise JSON_SyntaxError(f"Expected ':' for key \"{key}\", found '{char}' instead.")
                 else:
                     semicolon_check = False
                     at_value = True
+                    
             elif at_value:
                 if char == '[':
-                    pass
+                    value_type = 
                 elif char == '{':
-                    pass
-                else
-
-
+                    value_type = 
+                else:
+                    value_type = 
 
         return content
 
 
 
-test = jsonreader.parse('{"hello": "world", "foo": 4}')
-
+test = JSON.parse('{"hello": "world", "foo": 4}')
+print(test)
 
 
 #foo = jsonreader.read(path)
