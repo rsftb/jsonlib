@@ -1,12 +1,12 @@
 import os
 import sys
 from pathlib import Path
-
+from dataclasses import dataclass
 
 # comment log: what's up & what's new
-#  processerror and parseerror are on hold rn, not bad ideas but what i used them for were json syntax errors
-#  i think i need to first lex my input into tokens and then parse the tokens into a dictionary, but how to lex?
-#  and check out how to reverse it because they're already tokens n stuff
+#  hope i get to use processerror and parseerror
+#  lexer turns relevant characters into tokens, parser turns that list of tokens into something meaningful
+#  turned the TOKEN class into a @dataclass
 
 
 #class ProcessError(Exception): ...
@@ -14,11 +14,27 @@ from pathlib import Path
 class JSON_SyntaxError(Exception): ...
 
 
-class TOKEN_list: ...
+@dataclass
+class TOKEN:
+    self.value: any
 
-class TOKEN_dict: ...
+class TOKEN_KEY(TOKEN): ...
+class TOKEN_VALUE(TOKEN): ...
 
-class TOKEN_literal: ...
+class TOKEN_COLON(TOKEN): ...
+class TOKEN_COMMA(TOKEN): ...
+
+class TOKEN_LSQUARED(TOKEN): ...
+class TOKEN_RSQUARED(TOKEN): ...
+
+class TOKEN_LCURLY(TOKEN): ...
+class TOKEN_RCURLY(TOKEN): ...
+
+class TOKEN_OBJECT(TOKEN):
+    def consume(self, l: TOKEN_LCURLY, r: TOKEN_RCURLY):
+        pass
+
+class TOKEN_ARRAY(TOKEN): ...
 
 
 class JSON:
@@ -28,6 +44,8 @@ class JSON:
         path = Path(path)
         if not os.path.exists(path):
             return None
+        elif path[-5:] != ".json":
+            return None
         else:
             with open(path, 'r') as f:
                 f = f.read()
@@ -35,8 +53,8 @@ class JSON:
 
     @staticmethod
     def preprocess(f: str) -> dict or None:
-        for char in (' ', '\n'):
-            f = f.replace(char, '')
+        for char in (' ', '\n'): # removing this and skipping ' ' and '\n' while lexing instead may be better
+            f = f.replace(char, '') # also allows for accurate line no. info
 
         if f[0] != '{':
             raise JSON_SyntaxError(f"Missing opening curled bracket '{' for JSON body, found '{f[-1]}' instead.")
@@ -46,18 +64,25 @@ class JSON:
             else:            raise JSON_SyntaxError(f"Missing ending curled bracket '}' for JSON body, found '{f[-1]}' instead.")
 
         executed = parse(f)
+
         if not executed:
             return None
         else:
             return executed
 
     @staticmethod
-    def parse(f: str, parent=None) -> dict or False:
+    def lex(f: str, parent=None) -> list:
+        """
+        Performs lexical analysis, evaluates tokens from text
+        Either returns a list of tokens or throws an exception
+        Recursive function because I can
+        """
+
         key = ""
         value = None
         
         at_key  = True
-        parse_key = False
+        read_key = False
 
         semicolon_check = False
 
@@ -65,42 +90,46 @@ class JSON:
 
         comma_check = False
 
-        content = {}
+        tokens = []
 
         for i, char in enumerate(f):
             if at_key:
-                if not parse_key:
+                if not read_key:
                     if char != '"':
                         raise JSON_SyntaxError(f"Expected double quote character (\") while finding start of some key, found '{char}' instead.")
                     else:
-                        parse_key = True
-                elif parse_key:
+                        read_key = True
+                elif read_key:
                     if char != '"':
                         key += char
                     else:
-                        at_key    = False
-                        parse_key = False
+                        tokens.append(TOKEN_KEY(key))
+                        at_key   = False
+                        read_key = False
                         semicolon_check = True
             elif semicolon_check:
                 if char != ':':
-                    raise JSON_SyntaxError(f"Expected ':' for key \"{key}\", found '{char}' instead.")
+                    raise JSON_SyntaxError(f"Expected ':' after key \"{key}\", found '{char}' instead.")
                 else:
                     semicolon_check = False
                     at_value = True
                     
             elif at_value:
                 if char == '[':
-                    value_type = 
+                    value_type = TOKEN_list 
                 elif char == '{':
-                    value_type = 
+                    value_type = TOKEN_dict
                 else:
-                    value_type = 
+                    value_type = TOKEN_literal
 
         return content
 
+    def parse(self):
+        pass
 
 
-test = JSON.parse('{"hello": "world", "foo": 4}')
+
+test = JSON.str_to_dict('{"hello": "world", "foo": 4}')
 print(test)
 
 
