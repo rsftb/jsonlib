@@ -7,22 +7,25 @@ from dataclasses import dataclass
 #  hope i get to use processerror and parseerror
 #  lexer turns relevant characters into tokens, parser turns that list of tokens into something meaningful
 #  turned the TOKEN class into a @dataclass
+#  changed meta a little bit, turned parse() into lex(), recursion now takes
+#   place on the json string 'f' itself instead of a dictionary, return should
+#   accomodate for this
 
 
-#class ProcessError(Exception): ...
-#class ParseError(Exception): ...
+# class ProcessError(Exception): ...
+# class ParseError(Exception): ...
 class JSON_SyntaxError(Exception): ...
 
 
 @dataclass
 class TOKEN:
-    self.value: any
+    value: any
 
 class TOKEN_KEY(TOKEN): ...
 class TOKEN_VALUE(TOKEN): ...
 
-class TOKEN_COLON(TOKEN): ...
-class TOKEN_COMMA(TOKEN): ...
+# class TOKEN_COLON(TOKEN): ...  # Could be used,
+# class TOKEN_COMMA(TOKEN): ...  #  just don't have to be
 
 class TOKEN_LSQUARED(TOKEN): ...
 class TOKEN_RSQUARED(TOKEN): ...
@@ -40,7 +43,7 @@ class TOKEN_ARRAY(TOKEN): ...
 class JSON:
 
     @staticmethod
-    def read(self, path: str) -> dict or None:
+    def read(path: str) -> dict or None:
         path = Path(path)
         if not os.path.exists(path):
             return None
@@ -49,19 +52,18 @@ class JSON:
         else:
             with open(path, 'r') as f:
                 f = f.read()
-                return preprocess(f)
+                return JSON.preprocess(f)
 
-    @staticmethod
     def preprocess(f: str) -> dict or None:
-        for char in (' ', '\n'): # removing this and skipping ' ' and '\n' while lexing instead may be better
-            f = f.replace(char, '') # also allows for accurate line no. info
+        for char in (' ', '\n'):  # removing this and skipping ' ' and '\n' while lexing instead may be better
+            f = f.replace(char, '')  # also allows for accurate line no. info
 
         if f[0] != '{':
-            raise JSON_SyntaxError(f"Missing opening curled bracket '{' for JSON body, found '{f[-1]}' instead.")
+            raise JSON_SyntaxError(f"Missing opening curled bracket '{{' for JSON body, found '{f[-1]}' instead.")
 
         elif f[-1] != '}':
             if f[-1] == " ": raise JSON_SyntaxError("Trailing whitespace beyond the JSON body is not allowed.")
-            else:            raise JSON_SyntaxError(f"Missing ending curled bracket '}' for JSON body, found '{f[-1]}' instead.")
+            else:            raise JSON_SyntaxError(f"Missing ending curled bracket '}}' for JSON body, found '{f[-1]}' instead.")
 
         executed = parse(f)
 
@@ -74,23 +76,25 @@ class JSON:
     def lex(f: str, parent=None) -> list:
         """
         Performs lexical analysis, evaluates tokens from text
-        Either returns a list of tokens or throws an exception
+        Either returns a list of tokens or throws JSON_SyntaxError
         Recursive function because I can
         """
 
         key = ""
         value = None
-        
-        at_key  = True
-        read_key = False
 
-        semicolon_check = False
+        at_key:   bool = True
+        read_key: bool = False
 
-        at_value = False
+        semicolon_check: bool = False
 
-        comma_check = False
+        at_value: bool = False
+        got_type: bool = False
+        value_type: str = None
 
-        tokens = []
+        comma_check: bool = False
+
+        tokens: list[TOKEN] = []
 
         for i, char in enumerate(f):
             if at_key:
@@ -113,16 +117,30 @@ class JSON:
                 else:
                     semicolon_check = False
                     at_value = True
-                    
-            elif at_value:
-                if char == '[':
-                    value_type = TOKEN_list 
-                elif char == '{':
-                    value_type = TOKEN_dict
-                else:
-                    value_type = TOKEN_literal
 
-        return content
+            elif at_value:
+                if not got_type:
+                    if char == '[':
+                        value_type = "array"
+                    elif char == '{':
+                        value_type = "dict" # recursion could take place here
+                    else:
+                        value_type = "literal"
+                    got_type = True
+
+                elif got_type:
+                    if value_type == "array":
+                        pass
+                    elif value_type == "dict":
+                        pass
+                    elif value_type == "literal":
+                        pass
+                    else:
+                        pass
+
+
+
+        return tokens
 
     def parse(self):
         pass
@@ -135,4 +153,4 @@ print(test)
 
 #foo = jsonreader.read(path)
 #foo["hello"] = "world"
-#jsonreader.write(foo, path)
+#jsonreader.write(foo, path
