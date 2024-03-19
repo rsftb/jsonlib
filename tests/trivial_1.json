@@ -1,0 +1,14 @@
+{
+    "name": "Alice",
+    "age": 25,
+    "is_student": true,
+    "grades": {
+        "math": 90,
+        "science": 85
+    },
+    "hobbies": ["Reading", "Cooking"],
+    "address": {
+        "city": "Exampleville",
+        "zipcode": "12345"
+    }
+}
