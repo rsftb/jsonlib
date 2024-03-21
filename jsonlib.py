@@ -4,10 +4,9 @@ import re
 from pathlib import Path
 from dataclasses import dataclass
 
-import inspect
 
 def current_line_number() -> int:
-    return inspect.currentframe().f_back.f_lineno
+    return __import__("inspect").currentframe().f_back.f_lineno
 
 
 # class ProcessError(Exception): ...
@@ -36,12 +35,11 @@ class TOKEN_UNDERSCORE(TOKEN): ... # _
 class TOKEN_DQUOTE(TOKEN): ...  # "
 class TOKEN_PERIOD(TOKEN): ...  # .
 class TOKEN_COLON(TOKEN): ...  # :
-class TOKEN_COMMA(TOKEN): ...  # ,_
+class TOKEN_COMMA(TOKEN): ...  # ,
 
 
-class TOKEN_NUMBER(TOKEN): ...  # a-zA-Z
-class TOKEN_ALPHA(TOKEN): ...  # a-zA-Z0-9
-
+class TOKEN_NUMBER(TOKEN): ...  # 0-9
+class TOKEN_ALPHA(TOKEN): ...  # a-zA-Z
 
 
 class TOKEN_OBJECT(TOKEN):  # complete dictionary
@@ -54,7 +52,7 @@ class TOKEN_ARRAY(TOKEN): ...
 class JSON:
 
     @staticmethod
-    def read(path: str) -> dict or None:
+    def read(path: str or Path) -> dict or None:
         path = Path(path)
         if not os.path.exists(path):
             return None
@@ -70,15 +68,13 @@ class JSON:
             raise JSON_SyntaxError(f"Missing opening curled bracket '{{' for JSON body, found '{f[-1][-1]}' instead.")
 
         elif f[-1][-1] != '}':
-            if f[-1][-1] == " ": raise JSON_SyntaxError("Trailing whitespace beyond the JSON body is not allowed.")
-            else:            raise JSON_SyntaxError(f"Missing ending curled bracket '}}' for JSON body, found '{f[-1][-1]}' instead.")
+            if f[-1][-1] == " ":
+                raise JSON_SyntaxError("Trailing whitespace beyond the JSON body is not allowed.")
+            else:
+                raise JSON_SyntaxError(f"Missing ending curled bracket '}}' for JSON body, found '{f[-1][-1]}' instead.")
 
-        lexed = JSON.lex(f)
+        return JSON.lex(f)
 
-        if not lexed:
-            return None
-        else:
-            return lexed
 
     @staticmethod
     def lex(file: list[str]) -> list[TOKEN]:
@@ -116,7 +112,7 @@ class JSON:
                 elif re.fullmatch(r"[a-zA-Z]", char):
                     tokens.append(TOKEN_ALPHA(char))
                 else:
-                    raise JSON_SyntaxError(f"in json file: line {lineno+1}: char {charno+1}: token {char}")
+                    raise JSON_SyntaxError(f"{path}: line {lineno+1}: char {charno+1}: token {char}")
 
         return tokens
 
