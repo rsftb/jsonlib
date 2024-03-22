@@ -9,21 +9,15 @@ def current_line_number() -> int:
     return __import__("inspect").currentframe().f_back.f_lineno
 
 
-# class ProcessError(Exception): ...
-# class ParseError(Exception): ..,
 class JSON_SyntaxError(Exception): ...
-class UnreachableCode(Exception): ...
+
 
 @dataclass
 class TOKEN:
     value: any = None
 
 
-class TOKEN_KEY(TOKEN): ...
-class TOKEN_VALUE(TOKEN): ...
-
-# class TOKEN_COLON(TOKEN): ... # could be used,
-# class TOKEN_COMMA(TOKEN): ... #  just don't have to be
+## Atomic tokens
 
 class TOKEN_LSQUARE(TOKEN): ...  # [
 class TOKEN_RSQUARE(TOKEN): ...  # ]
@@ -31,22 +25,38 @@ class TOKEN_RSQUARE(TOKEN): ...  # ]
 class TOKEN_LCURLY(TOKEN): ...  # {
 class TOKEN_RCURLY(TOKEN): ...  # }
 
-class TOKEN_UNDERSCORE(TOKEN): ... # _
 class TOKEN_DQUOTE(TOKEN): ...  # "
 class TOKEN_PERIOD(TOKEN): ...  # .
 class TOKEN_COLON(TOKEN): ...  # :
 class TOKEN_COMMA(TOKEN): ...  # ,
 
-
 class TOKEN_NUMBER(TOKEN): ...  # 0-9
-class TOKEN_ALPHA(TOKEN): ...  # a-zA-Z
+class TOKEN_LETTER(TOKEN): ...  # a-z
+class TOKEN_STRINGABLE(TOKEN): ...  # Anything
 
 
-class TOKEN_OBJECT(TOKEN):  # complete dictionary
-    def consume(self, l: TOKEN_LCURLY, r: TOKEN_RCURLY):
+character_to_token: dict = {
+    '[': TOKEN_RSQUARE,
+    ']': TOKEN_LSQUARE,
+    '{': TOKEN_LCURLY,
+    '}': TOKEN_RCURLY,
+    '"': TOKEN_DQUOTE,
+    ':': TOKEN_COLON,
+    '.': TOKEN_PERIOD,
+    ',': TOKEN_COMMA,
+}
+
+
+## Composite tokens
+
+class TOKEN_OBJECT(TOKEN):  # {}
+    def consume(self, l: TOKEN_LCURLY, r: TOKEN_RCURLY, *args):
         pass
 
-class TOKEN_ARRAY(TOKEN): ...
+class TOKEN_ARRAY(TOKEN): ...  # []
+class TOKEN_BOOL(TOKEN): ...  # true / false
+class TOKEN_NULL(TOKEN): ...  # null (None)
+class TOKEN_STRING(TOKEN): ... # ""
 
 
 class JSON:
@@ -85,34 +95,31 @@ class JSON:
 
         tokens: list[TOKEN] = []
 
+        inside_string: bool = False
+        dquote_at: tuple = (0, 0)
+
         for lineno, line in enumerate(file):
             for charno, char in enumerate(line):
-                if char in (' ', '\n'):
-                    continue
-                elif char == '[':
-                    tokens.append(TOKEN_LSQUARE())
-                elif char == ']':
-                    tokens.append(TOKEN_RSQUARE())
-                elif char == '{':
-                    tokens.append(TOKEN_LCURLY())
-                elif char == '}':
-                    tokens.append(TOKEN_RCURLY())
-                elif char == '"':
-                    tokens.append(TOKEN_DQUOTE())
-                elif char == ':':
-                    tokens.append(TOKEN_COLON())
-                elif char == '.':
-                    tokens.append(TOKEN_PERIOD())
-                elif char == ',':
-                    tokens.append(TOKEN_COMMA())
-                elif char == '_':
-                    tokens.append(TOKEN_UNDERSCORE())
-                elif re.fullmatch(r"[0-9]", char):
-                    tokens.append(TOKEN_NUMBER(char))
-                elif re.fullmatch(r"[a-zA-Z]", char):
-                    tokens.append(TOKEN_ALPHA(char))
-                else:
-                    raise JSON_SyntaxError(f"{path}: line {lineno+1}: char {charno+1}: token {char}")
+                try:
+                    tokens.append(character_to_token[char])
+                    if char == '"':
+                        inside_string = not inside_string
+                        dquote_at = (lineno, charno)
+                except KeyError:
+                    if inside_string:
+                        tokens.append(TOKEN_STRINGABLE(char))
+                    elif char in (' ', '\n'):
+                        continue
+                    elif re.fullmatch(r"[0-9]", char):
+                        tokens.append(TOKEN_NUMBER(char))
+                    elif re.fullmatch(r"[a-z]", char):
+                        tokens.append(TOKEN_LETTER(char))
+                    else:
+                        tokens.append(TOKEN_SPECIAL(char))
+                    #raise JSON_SyntaxError(f"{path}: line {lineno+1}: char {charno+1}: token {char}")
+
+        if inside_string:
+            raise JSON_SyntaxError(f"{path}: unterminated string starting at line {dquote_at[0]+1}, character {dquote_at[1]+1}.")
 
         return tokens
 
