@@ -71,9 +71,10 @@ class JSON:
         else:
             with open(path, 'r') as f:
                 content = f.readlines()
-                return JSON.preprocess(content)
+                return JSON._preprocess(content)
 
-    def preprocess(f: str) -> dict or None:
+    @staticmethod
+    def _preprocess(f: str) -> dict or None:
         if f[0][0] != '{':
             raise JSON_SyntaxError(f"Missing opening curled bracket '{{' for JSON body, found '{f[-1][-1]}' instead.")
 
@@ -85,9 +86,8 @@ class JSON:
 
         return JSON.lex(f)
 
-
     @staticmethod
-    def lex(file: list[str]) -> list[TOKEN]:
+    def _lex(file: list[str]) -> list[TOKEN]:
         """
         Performs lexical analysis, evaluates tokens from text
         Either returns a list of tokens or throws
@@ -115,8 +115,7 @@ class JSON:
                     elif re.fullmatch(r"[a-z]", char):
                         tokens.append(TOKEN_LETTER(char))
                     else:
-                        tokens.append(TOKEN_SPECIAL(char))
-                    #raise JSON_SyntaxError(f"{path}: line {lineno+1}: char {charno+1}: token {char}")
+                        raise JSON_SyntaxError(f"{path}: line {lineno+1}: char {charno+1}: token {char}")
 
         if inside_string:
             raise JSON_SyntaxError(f"{path}: unterminated string starting at line {dquote_at[0]+1}, character {dquote_at[1]+1}.")
