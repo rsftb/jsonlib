@@ -4,7 +4,7 @@
 
 import os
 import re
-from jsonlib import JSON
+from tinyjson import JSON
 
 
 samples = ["trivial_1.json"]
@@ -25,7 +25,7 @@ def count_valid_json_tokens(file: list[str]) -> int:
                 token_count += 1
             elif re.fullmatch(char, r"[0-9]"):
                 token_count += 1
-            elif re.fullmatch(char, r"[a-zA-Z]"):
+            elif re.fullmatch(char, r"[a-z]"):
                 token_count += 1
 
     return token_count
@@ -34,7 +34,7 @@ def count_valid_json_tokens(file: list[str]) -> int:
 def test_lexer(file: str) -> None or AssertionError:
     with open(f"{file}", 'r') as f:
         f = f.readlines()
-        output = JSON.lex(f)
+        output = JSON._lex(f)
         lexer_tokens_len = len(output)
         valid_tokens_len = count_valid_json_tokens(f)
 

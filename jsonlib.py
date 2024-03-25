@@ -71,7 +71,10 @@ class JSON:
         else:
             with open(path, 'r') as f:
                 content = f.readlines()
-                return JSON._preprocess(content)
+                content = JSON._preprocess(content)
+                content = JSON._lex(content)
+                content = JSON._parse(content)
+                return content
 
     @staticmethod
     def _preprocess(f: str) -> dict or None:
@@ -84,7 +87,7 @@ class JSON:
             else:
                 raise JSON_SyntaxError(f"Missing ending curled bracket '}}' for JSON body, found '{f[-1][-1]}' instead.")
 
-        return JSON.lex(f)
+        return f
 
     @staticmethod
     def _lex(file: list[str]) -> list[TOKEN]:
@@ -100,12 +103,13 @@ class JSON:
 
         for lineno, line in enumerate(file):
             for charno, char in enumerate(line):
-                try:
-                    tokens.append(character_to_token[char])
+                token = character_to_token.get(char, None)
+                if token:
+                    tokens.append(token)
                     if char == '"':
                         inside_string = not inside_string
                         dquote_at = (lineno, charno)
-                except KeyError:
+                else:
                     if inside_string:
                         tokens.append(TOKEN_STRINGABLE(char))
                     elif char in (' ', '\n'):
@@ -121,4 +125,32 @@ class JSON:
             raise JSON_SyntaxError(f"{path}: unterminated string starting at line {dquote_at[0]+1}, character {dquote_at[1]+1}.")
 
         return tokens
+
+    @staticmethod
+    def _parse(tokens: list[TOKEN]) -> dict:
+        output = {}
+
+        finding_dquote: bool = True
+        at_string: bool = False
+
+        semicolon_check: bool = False
+
+        at_value: bool = False
+
+
+        for token in tokens[1:-1]:
+            if finding_dquote:
+                if isinstance(token, TOKEN_DQUOTE):
+                    finding_dquote, at_string = at_string, finding_dquote
+            elif at_string:
+                if isinstance(token, TOKEN_DQUOTE):
+                    at_string, semicolon_check = semicolon_check, at_string
+                else:
+                    string += token.value
+
+
+
+
+
+
 
