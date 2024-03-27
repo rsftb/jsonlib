@@ -15,6 +15,7 @@ class JSON_SyntaxError(Exception): ...
 @dataclass
 class TOKEN:
     value: any = None
+    pos: tuple[int, int] = ()
 
 
 ## Atomic tokens
@@ -32,10 +33,10 @@ class TOKEN_COMMA(TOKEN): ...  # ,
 
 class TOKEN_NUMBER(TOKEN): ...  # 0-9
 class TOKEN_LETTER(TOKEN): ...  # a-z
-class TOKEN_STRINGABLE(TOKEN): ...  # Anything
+class TOKEN_SPECIAL(TOKEN): ...  # Anything else, should primarily catch special characters in strings
 
 
-character_to_token: dict = {
+token_map: dict[cls] = {
     '[': TOKEN_RSQUARE,
     ']': TOKEN_LSQUARE,
     '{': TOKEN_LCURLY,
@@ -77,80 +78,59 @@ class JSON:
                 return content
 
     @staticmethod
-    def _preprocess(f: str) -> dict or None:
-        if f[0][0] != '{':
+    def _preprocess(file: list[str]) -> dict:
+        if file[0][0] != '{':
             raise JSON_SyntaxError(f"Missing opening curled bracket '{{' for JSON body, found '{f[-1][-1]}' instead.")
 
-        elif f[-1][-1] != '}':
-            if f[-1][-1] == " ":
+        elif file[-1][-1] != '}':
+            if file[-1][-1] == " ":
                 raise JSON_SyntaxError("Trailing whitespace beyond the JSON body is not allowed.")
             else:
                 raise JSON_SyntaxError(f"Missing ending curled bracket '}}' for JSON body, found '{f[-1][-1]}' instead.")
 
-        return f
+        return file
 
     @staticmethod
     def _lex(file: list[str]) -> list[TOKEN]:
         """
         Performs lexical analysis, evaluates tokens from text
-        Either returns a list of tokens or throws
+        Always returns a list of tokens
         """
 
         tokens: list[TOKEN] = []
 
-        inside_string: bool = False
-        dquote_at: tuple = (0, 0)
-
         for lineno, line in enumerate(file):
             for charno, char in enumerate(line):
-                token = character_to_token.get(char, None)
-                if token:
-                    tokens.append(token)
-                    if char == '"':
-                        inside_string = not inside_string
-                        dquote_at = (lineno, charno)
-                else:
-                    if inside_string:
-                        tokens.append(TOKEN_STRINGABLE(char))
-                    elif char in (' ', '\n'):
-                        continue
-                    elif re.fullmatch(r"[0-9]", char):
-                        tokens.append(TOKEN_NUMBER(char))
-                    elif re.fullmatch(r"[a-z]", char):
-                        tokens.append(TOKEN_LETTER(char))
-                    else:
-                        raise JSON_SyntaxError(f"{path}: line {lineno+1}: char {charno+1}: token {char}")
+                if char in (' ', '\n'): continue
 
-        if inside_string:
-            raise JSON_SyntaxError(f"{path}: unterminated string starting at line {dquote_at[0]+1}, character {dquote_at[1]+1}.")
+                token = token_map.get(char, None)
+                if token:
+                    tokens.append(token(char, pos=(lineno, charno)))
+                elif re.fullmatch(r"[0-9]", char):
+                    tokens.append(TOKEN_NUMBER(char, pos=(lineno, charno)))
+                elif re.fullmatch(r"[a-z]", char):
+                    tokens.append(TOKEN_LETTER(char, pos=(lineno, charno)))
+                else:
+                    tokens.append(TOKEN_SPECIAL(char, pos=(lineno, charno)))
 
         return tokens
 
     @staticmethod
-    def _parse(tokens: list[TOKEN]) -> dict:
-        output = {}
+    def _parse(tokens: list[TOKEN]) -> ParseTree:
+        """
+        Parses the tokens into a tree
+        """
+        return JSON._parse_object(tokens)
 
-        finding_dquote: bool = True
-        at_string: bool = False
+    @staticmethod
+    def _parse_object(tokens: list[TOKEN]) -> dict:
+        JSON._expect(tokens, '{')
 
-        semicolon_check: bool = False
-
-        at_value: bool = False
-
-
-        for token in tokens[1:-1]:
-            if finding_dquote:
-                if isinstance(token, TOKEN_DQUOTE):
-                    finding_dquote, at_string = at_string, finding_dquote
-            elif at_string:
-                if isinstance(token, TOKEN_DQUOTE):
-                    at_string, semicolon_check = semicolon_check, at_string
-                else:
-                    string += token.value
-
-
-
-
+    @staticmethod
+    def _expect(tokens: list[TOKEN], char: str[1]) -> True or JSON_SyntaxError:
+        if tokens[0].value != char:
+            raise JSON_SyntaxError("_")
+        return True
 
 
 
