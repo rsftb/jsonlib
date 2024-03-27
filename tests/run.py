@@ -4,7 +4,7 @@
 
 import os
 import re
-from tinyjson import JSON
+from jsonlib import JSON
 
 
 samples = ["trivial_1.json"]
