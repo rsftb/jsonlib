@@ -1,12 +1,7 @@
 import os
-import sys
 import re
 from pathlib import Path
 from dataclasses import dataclass
-
-
-def current_line_number() -> int:
-    return __import__("inspect").currentframe().f_back.f_lineno
 
 
 class JSON_SyntaxError(Exception): ...
@@ -18,25 +13,42 @@ class TOKEN:
     pos: tuple[int, int] = ()
 
 
+class VOID_TOKEN(type):
+    """
+    Lets me pass any parameter to the class and have it return the class (line 130)
+    """
+    pass
+
+
 ## Atomic tokens
 
 class TOKEN_LSQUARE(TOKEN): ...  # [
-class TOKEN_RSQUARE(TOKEN): ...  # ]
+class TOKEN_RSQUARE(TOKEN, metaclass=VOID_TOKEN): ...  # ]
 
-class TOKEN_LCURLY(TOKEN): ...  # {
-class TOKEN_RCURLY(TOKEN): ...  # }
+class TOKEN_LCURLY(TOKEN):  # {
+    @staticmethod
+    def consume(_tokens: list[TOKEN], _list_index: int) -> tuple[TOKEN, int]:
+        start_list_index = _list_index
+        while _tokens[_list_index] is not TOKEN_RCURLY:
+            _list_index += 1
+
+        #tokens = tokens[_list_index:]
+        #tokens.insert(TOKEN_OBJECT(tokens[]))
+        return _tokens, _list_index
+
+class TOKEN_RCURLY(TOKEN, metaclass=VOID_TOKEN): ...  # }
 
 class TOKEN_DQUOTE(TOKEN): ...  # "
-class TOKEN_PERIOD(TOKEN): ...  # .
-class TOKEN_COLON(TOKEN): ...  # :
-class TOKEN_COMMA(TOKEN): ...  # ,
+class TOKEN_PERIOD(TOKEN, metaclass=VOID_TOKEN): ...  # .
+class TOKEN_COLON(TOKEN, metaclass=VOID_TOKEN): ...  # :
+class TOKEN_COMMA(TOKEN, metaclass=VOID_TOKEN): ...  # ,
 
 class TOKEN_NUMBER(TOKEN): ...  # 0-9
 class TOKEN_LETTER(TOKEN): ...  # a-z
 class TOKEN_SPECIAL(TOKEN): ...  # Anything else, should primarily catch special characters in strings
 
 
-token_map: dict[cls] = {
+atomic_token_map: dict[cls] = {
     '[': TOKEN_RSQUARE,
     ']': TOKEN_LSQUARE,
     '{': TOKEN_LCURLY,
@@ -51,13 +63,13 @@ token_map: dict[cls] = {
 ## Composite tokens
 
 class TOKEN_OBJECT(TOKEN):  # {}
-    def consume(self, l: TOKEN_LCURLY, r: TOKEN_RCURLY, *args):
-        pass
+    def __init__(self, *args):
+        self.content = {}
 
 class TOKEN_ARRAY(TOKEN): ...  # []
 class TOKEN_BOOL(TOKEN): ...  # true / false
 class TOKEN_NULL(TOKEN): ...  # null (None)
-class TOKEN_STRING(TOKEN): ... # ""
+class TOKEN_STRING(TOKEN): ... # "" 
 
 
 class JSON:
@@ -80,13 +92,9 @@ class JSON:
     @staticmethod
     def _preprocess(file: list[str]) -> dict:
         if file[0][0] != '{':
-            raise JSON_SyntaxError(f"Missing opening curled bracket '{{' for JSON body, found '{f[-1][-1]}' instead.")
-
+            raise JSON_SyntaxError(f"Missing opening curled bracket '{{' for JSON body, found '{file[-1][-1]}' instead.")
         elif file[-1][-1] != '}':
-            if file[-1][-1] == " ":
-                raise JSON_SyntaxError("Trailing whitespace beyond the JSON body is not allowed.")
-            else:
-                raise JSON_SyntaxError(f"Missing ending curled bracket '}}' for JSON body, found '{f[-1][-1]}' instead.")
+            raise JSON_SyntaxError(f"Missing ending curled bracket '}}' for JSON body, found '{file[-1][-1]}' instead.")
 
         return file
 
@@ -103,15 +111,16 @@ class JSON:
             for charno, char in enumerate(line):
                 if char in (' ', '\n'): continue
 
-                token = token_map.get(char, None)
-                if token:
-                    tokens.append(token(char, pos=(lineno, charno)))
-                elif re.fullmatch(r"[0-9]", char):
-                    tokens.append(TOKEN_NUMBER(char, pos=(lineno, charno)))
-                elif re.fullmatch(r"[a-z]", char):
-                    tokens.append(TOKEN_LETTER(char, pos=(lineno, charno)))
-                else:
-                    tokens.append(TOKEN_SPECIAL(char, pos=(lineno, charno)))
+                token = atomic_token_map.get(char, None)
+                if not token:
+                    if re.fullmatch(r"[0-9]", char):
+                        token = TOKEN_NUMBER # or append
+                    elif re.fullmatch(r"[a-z]", char):
+                        token = TOKEN_LETTER
+                    else:
+                        token = TOKEN_SPECIAL
+
+                tokens.append(token(char, pos=(lineno, charno)))
 
         return tokens
 
@@ -120,17 +129,9 @@ class JSON:
         """
         Parses the tokens into a tree
         """
-        return JSON._parse_object(tokens)
+        list_index = 0
+        tov = None
 
-    @staticmethod
-    def _parse_object(tokens: list[TOKEN]) -> dict:
-        JSON._expect(tokens, '{')
-
-    @staticmethod
-    def _expect(tokens: list[TOKEN], char: str[1]) -> True or JSON_SyntaxError:
-        if tokens[0].value != char:
-            raise JSON_SyntaxError("_")
-        return True
-
-
+        while list_index < len(tokens):
+            tokens, list_index = tokens[list_index].consume(tokens)
 
